@@ -277,10 +277,14 @@ func (s *Server) handleRequest(req *ipc.Request) *ipc.Response {
 
 // runScan performs a scan using ClamAV.
 func (s *Server) runScan(scanType string) {
-	slog.Info("starting scan", "type", scanType)
+	jobID := scanType + "-" + time.Now().Format("20060102-150405")
+	evt := events.StartScan(scanType, jobID)
+	defer func() {
+		s.daemon.Events().Emit(evt.End())
+	}()
 
 	if !s.daemon.Scanner().IsAvailable() {
-		slog.Error("ClamAV not available, cannot scan")
+		evt.SetError(fmt.Errorf("ClamAV not available"))
 		s.daemon.State().SetState(StateWarning)
 		return
 	}
@@ -298,6 +302,7 @@ func (s *Server) runScan(scanType string) {
 		s.scanDirectory(basePath, &filesScanned, &threatsFound)
 	}
 
+	evt.FilesScanned(filesScanned).ThreatsFound(threatsFound)
 	s.daemon.SetLastScan(time.Now())
 
 	if threatsFound > 0 {
@@ -305,8 +310,6 @@ func (s *Server) runScan(scanType string) {
 	} else {
 		s.daemon.State().SetState(StateProtected)
 	}
-
-	slog.Info("scan completed", "type", scanType, "files", filesScanned, "threats", threatsFound)
 }
 
 // scanDirectory recursively scans a directory.
@@ -321,14 +324,17 @@ func (s *Server) scanDirectory(basePath string, filesScanned, threatsFound *int)
 
 		result := s.daemon.Scanner().ScanFile(path)
 		if result.Error != nil {
-			slog.Debug("scan error", "path", path, "error", result.Error)
-			return nil
+			return nil // skip files that can't be scanned
 		}
 
 		*filesScanned++
 		if !result.Clean {
 			*threatsFound++
-			slog.Warn("threat detected", "path", path, "threat", result.Threat)
+			// Emit threat detection event
+			threatEvt := events.StartThreat(path, result.Threat).
+				Action("detected").
+				FileSize(info.Size())
+			s.daemon.Events().Emit(threatEvt.End())
 		}
 		return nil
 	})
