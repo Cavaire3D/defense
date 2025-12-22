@@ -99,15 +99,21 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 		var req ipc.Request
 		if err := json.Unmarshal(line, &req); err != nil {
-			encoder.Encode(ipc.Response{
+			if err := encoder.Encode(ipc.Response{
 				Success: false,
 				Error:   "invalid JSON",
-			})
+			}); err != nil {
+				slog.Warn("failed to encode error response", "error", err)
+				return
+			}
 			continue
 		}
 
 		resp := s.handleRequest(&req)
-		encoder.Encode(resp)
+		if err := encoder.Encode(resp); err != nil {
+			slog.Warn("failed to encode response", "error", err)
+			return
+		}
 	}
 }
 
