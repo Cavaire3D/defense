@@ -13,12 +13,13 @@ import (
 
 // LogEntry represents a log entry in the database.
 type LogEntry struct {
-	ID        int64
-	Timestamp time.Time
-	Level     string
-	Component string
-	Message   string
-	Metadata  map[string]interface{}
+	ID          int64
+	Timestamp   time.Time
+	Level       string
+	Component   string
+	OperationID string // for correlating related events
+	Message     string
+	Metadata    map[string]interface{}
 }
 
 // LogStore manages log storage in SQLite.
@@ -54,11 +55,13 @@ func createSchema(db *sql.DB) error {
 		timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
 		level TEXT NOT NULL,
 		component TEXT,
+		operation_id TEXT,
 		message TEXT NOT NULL,
 		metadata TEXT
 	);
 	CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp);
 	CREATE INDEX IF NOT EXISTS idx_logs_level ON logs(level);
+	CREATE INDEX IF NOT EXISTS idx_logs_operation_id ON logs(operation_id);
 	`
 	_, err := db.Exec(schema)
 	return err
@@ -77,8 +80,8 @@ func (s *LogStore) Insert(entry LogEntry) error {
 	}
 
 	_, err = s.db.Exec(
-		`INSERT INTO logs (timestamp, level, component, message, metadata) VALUES (?, ?, ?, ?, ?)`,
-		entry.Timestamp, entry.Level, entry.Component, entry.Message, metadataJSON,
+		`INSERT INTO logs (timestamp, level, component, operation_id, message, metadata) VALUES (?, ?, ?, ?, ?, ?)`,
+		entry.Timestamp, entry.Level, entry.Component, entry.OperationID, entry.Message, metadataJSON,
 	)
 	return err
 }
@@ -95,7 +98,7 @@ type QueryOptions struct {
 // Query retrieves log entries matching the options.
 // Results ordered by timestamp desc (newest first).
 func (s *LogStore) Query(opts QueryOptions) ([]LogEntry, error) {
-	query := `SELECT id, timestamp, level, component, message, metadata FROM logs WHERE 1=1`
+	query := `SELECT id, timestamp, level, component, operation_id, message, metadata FROM logs WHERE 1=1`
 	args := []interface{}{}
 
 	if opts.Level != "" {
@@ -132,11 +135,13 @@ func (s *LogStore) Query(opts QueryOptions) ([]LogEntry, error) {
 	for rows.Next() {
 		var entry LogEntry
 		var metadataJSON []byte
+		var operationID sql.NullString
 
-		err := rows.Scan(&entry.ID, &entry.Timestamp, &entry.Level, &entry.Component, &entry.Message, &metadataJSON)
+		err := rows.Scan(&entry.ID, &entry.Timestamp, &entry.Level, &entry.Component, &operationID, &entry.Message, &metadataJSON)
 		if err != nil {
 			return nil, err
 		}
+		entry.OperationID = operationID.String
 
 		if len(metadataJSON) > 0 {
 			if err := json.Unmarshal(metadataJSON, &entry.Metadata); err != nil {
@@ -161,4 +166,40 @@ func (s *LogStore) Prune(olderThan time.Duration) (int64, error) {
 	}
 
 	return result.RowsAffected()
+}
+
+// QueryByOperationID retrieves all log entries for a given operation ID.
+// Results ordered by timestamp asc (oldest first) to show operation flow.
+func (s *LogStore) QueryByOperationID(operationID string) ([]LogEntry, error) {
+	rows, err := s.db.Query(
+		`SELECT id, timestamp, level, component, operation_id, message, metadata FROM logs WHERE operation_id = ? ORDER BY timestamp ASC`,
+		operationID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []LogEntry
+	for rows.Next() {
+		var entry LogEntry
+		var metadataJSON []byte
+		var opID sql.NullString
+
+		err := rows.Scan(&entry.ID, &entry.Timestamp, &entry.Level, &entry.Component, &opID, &entry.Message, &metadataJSON)
+		if err != nil {
+			return nil, err
+		}
+		entry.OperationID = opID.String
+
+		if len(metadataJSON) > 0 {
+			if err := json.Unmarshal(metadataJSON, &entry.Metadata); err != nil {
+				slog.Warn("failed to unmarshal log metadata", "id", entry.ID, "error", err)
+			}
+		}
+
+		entries = append(entries, entry)
+	}
+
+	return entries, rows.Err()
 }
