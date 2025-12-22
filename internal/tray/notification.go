@@ -3,7 +3,7 @@
 package tray
 
 import (
-	"log"
+	"log/slog"
 	"os/exec"
 	"time"
 
@@ -51,20 +51,15 @@ func (t *Tray) showNotification(notificationType NotificationType, title, messag
 	}
 
 	// Send the notification
-	// if _, err := notify.SendNotification(t.conn,n); err != nil {
-	//     log.Printf("Failed to show notification: %v", err)
-	// }
+	if t.notifier != nil {
+		if _, err := t.notifier.SendNotification(n); err != nil {
+			slog.Error("failed to show notification", "error", err)
+		}
+	}
 }
 // executeAction runs a command with the given arguments
 func (t *Tray) executeAction(command string, args []string) error {
 	cmd := exec.Command(command, args...)
-	log.Printf("Executing: %s %v", command, args)
+	slog.Debug("executing action", "command", command, "args", args)
 	return cmd.Start()
 }
-
-// Close cleans up resources
-// func (t *Tray) Close() {
-// 	if t.conn != nil {
-// 		t.conn.Close()
-// 	}
-// }

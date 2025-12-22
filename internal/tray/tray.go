@@ -3,17 +3,21 @@ package tray
 
 import (
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/energye/systray"
+	"github.com/esiqveland/notify"
+	"github.com/godbus/dbus/v5"
 	"github.com/oreonproject/defense/pkg/ipc"
 )
 
 // Tray represents the system tray application
 type Tray struct {
-	client ipc.Client
-	menu   *menu
+	client   ipc.Client
+	menu     *menu
+	notifier notify.Notifier
 
 	iconProtected []byte
 	iconWarning   []byte
@@ -49,6 +53,17 @@ func (t *Tray) Run() error {
 
 // onReady is called when the system tray is ready
 func (t *Tray) onReady() {
+	// Initialize D-Bus notifier
+	conn, err := dbus.SessionBus()
+	if err != nil {
+		slog.Error("failed to connect to session bus", "error", err)
+	} else {
+		t.notifier, err = notify.New(conn)
+		if err != nil {
+			slog.Error("failed to create notifier", "error", err)
+		}
+	}
+
 	// Load icons
 	t.loadIcons()
 
