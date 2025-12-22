@@ -2,7 +2,9 @@
 package tray
 
 import (
+	"errors"
 	"log/slog"
+	"os"
 	"sync"
 	"time"
 
@@ -35,6 +37,11 @@ func New(client ipc.Client) *Tray {
 
 // Run starts the system tray application
 func (t *Tray) Run() error {
+	// Check for display - systray panics without one
+	if os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "" {
+		return errors.New("no display available (DISPLAY or WAYLAND_DISPLAY not set)")
+	}
+
 	systray.Run(t.onReady, t.onExit)
 
 	return nil
