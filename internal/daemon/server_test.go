@@ -244,3 +244,38 @@ func TestServer_ProtocolVersion(t *testing.T) {
 		t.Errorf("Success = false with matching version")
 	}
 }
+
+func TestServer_BadVersion(t *testing.T) {
+	_, sockPath, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	// Send with wrong version
+	resp := sendRequest(t, sockPath, &ipc.Request{
+		Version: 999, // future version
+		ID:      "1",
+		Command: ipc.CmdPing,
+	})
+
+	if resp.Success {
+		t.Error("Success = true for mismatched version")
+	}
+	if resp.Error == "" {
+		t.Error("Error is empty for mismatched version")
+	}
+}
+
+func TestServer_LegacyClient(t *testing.T) {
+	_, sockPath, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	// Send with version 0 (legacy client)
+	resp := sendRequest(t, sockPath, &ipc.Request{
+		Version: 0,
+		ID:      "1",
+		Command: ipc.CmdPing,
+	})
+
+	if !resp.Success {
+		t.Error("Success = false for version 0 (legacy client)")
+	}
+}

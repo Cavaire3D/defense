@@ -5,6 +5,7 @@ package daemon
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net"
 	"os"
@@ -133,9 +134,14 @@ func makeResponse(id string, data interface{}) *ipc.Response {
 func (s *Server) handleRequest(req *ipc.Request) *ipc.Response {
 	// Check protocol version (0 means old client that didn't send version)
 	if req.Version != 0 && req.Version != ipc.ProtocolVersion {
-		slog.Warn("client using different protocol version",
+		slog.Warn("rejecting request with incompatible protocol version",
 			"client_version", req.Version,
 			"server_version", ipc.ProtocolVersion)
+		return &ipc.Response{
+			ID:      req.ID,
+			Success: false,
+			Error:   fmt.Sprintf("protocol version mismatch: client=%d, server=%d", req.Version, ipc.ProtocolVersion),
+		}
 	}
 
 	switch req.Command {
