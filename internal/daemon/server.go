@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/oreonproject/defense/pkg/events"
 	"github.com/oreonproject/defense/pkg/ipc"
 )
 
@@ -194,24 +195,34 @@ func makeResponse(id string, data interface{}) *ipc.Response {
 }
 
 func (s *Server) handleRequest(req *ipc.Request) *ipc.Response {
+	evt := events.StartIPCRequest(req.Command, req.ID).ClientVersion(req.Version)
+	var resp *ipc.Response
+	defer func() {
+		if resp != nil && !resp.Success {
+			evt.SetError(fmt.Errorf("%s", resp.Error))
+		}
+		if resp != nil {
+			evt.ResponseSize(len(resp.Data))
+		}
+		s.daemon.Events().Emit(evt.End())
+	}()
+
 	// Check protocol version (0 means old client that didn't send version)
 	if req.Version != 0 && req.Version != ipc.ProtocolVersion {
-		slog.Warn("rejecting request with incompatible protocol version",
-			"client_version", req.Version,
-			"server_version", ipc.ProtocolVersion)
-		return &ipc.Response{
+		resp = &ipc.Response{
 			ID:      req.ID,
 			Success: false,
 			Error:   fmt.Sprintf("protocol version mismatch: client=%d, server=%d", req.Version, ipc.ProtocolVersion),
 		}
+		return resp
 	}
 
 	switch req.Command {
 	case ipc.CmdPing:
-		return makeResponse(req.ID, "pong")
+		resp = makeResponse(req.ID, "pong")
 
 	case ipc.CmdStatus:
-		return makeResponse(req.ID, ipc.StatusResponse{
+		resp = makeResponse(req.ID, ipc.StatusResponse{
 			State:           s.daemon.State().State().String(),
 			FirewallEnabled: s.daemon.FirewallEnabled(),
 			LastScan:        s.daemon.LastScan(),
@@ -220,46 +231,48 @@ func (s *Server) handleRequest(req *ipc.Request) *ipc.Response {
 
 	case ipc.CmdFirewallEnable:
 		s.daemon.SetFirewallEnabled(true)
-		return makeResponse(req.ID, "firewall enabled")
+		resp = makeResponse(req.ID, "firewall enabled")
 
 	case ipc.CmdFirewallDisable:
 		s.daemon.SetFirewallEnabled(false)
-		return makeResponse(req.ID, "firewall disabled")
+		resp = makeResponse(req.ID, "firewall disabled")
 
 	case ipc.CmdFirewallStatus:
-		return makeResponse(req.ID, ipc.FirewallStatusResponse{
+		resp = makeResponse(req.ID, ipc.FirewallStatusResponse{
 			Enabled: s.daemon.FirewallEnabled(),
 		})
 
 	case ipc.CmdScanQuick:
 		s.daemon.State().SetState(StateScanning)
 		go s.runScan("quick")
-		return makeResponse(req.ID, ipc.ScanResponse{
+		resp = makeResponse(req.ID, ipc.ScanResponse{
 			JobID: "quick-" + time.Now().Format("20060102-150405"),
 		})
 
 	case ipc.CmdScanFull:
 		s.daemon.State().SetState(StateScanning)
 		go s.runScan("full")
-		return makeResponse(req.ID, ipc.ScanResponse{
+		resp = makeResponse(req.ID, ipc.ScanResponse{
 			JobID: "full-" + time.Now().Format("20060102-150405"),
 		})
 
 	case ipc.CmdPause:
 		s.daemon.State().SetState(StatePaused)
-		return makeResponse(req.ID, "protection paused")
+		resp = makeResponse(req.ID, "protection paused")
 
 	case ipc.CmdResume:
 		s.daemon.State().SetState(StateProtected)
-		return makeResponse(req.ID, "protection resumed")
+		resp = makeResponse(req.ID, "protection resumed")
 
 	default:
-		return &ipc.Response{
+		resp = &ipc.Response{
 			ID:      req.ID,
 			Success: false,
 			Error:   "unknown command: " + req.Command,
 		}
 	}
+
+	return resp
 }
 
 // runScan performs a scan using ClamAV.
