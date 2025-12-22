@@ -21,6 +21,7 @@ type Config struct {
 type General struct {
 	RealTimeProtection bool   `toml:"real_time_protection"`
 	LogLevel           string `toml:"log_level"`
+	SocketPath         string `toml:"socket_path"` // IPC socket path (default: /run/oreon/defense.sock)
 }
 
 type Firewall struct {
@@ -50,6 +51,7 @@ func Default() *Config {
 		General: General{
 			RealTimeProtection: true,
 			LogLevel:           "info",
+			SocketPath:         SocketPath,
 		},
 		Firewall: Firewall{
 			Enabled: true,

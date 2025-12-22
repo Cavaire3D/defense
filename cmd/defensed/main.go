@@ -19,6 +19,7 @@ var version = "0.1.0-dev"
 
 func main() {
 	configPath := flag.String("config", config.SystemConfigPath, "path to config file")
+	socketPath := flag.String("socket", config.SocketPath, "path to IPC socket")
 	debug := flag.Bool("debug", false, "enable debug logging")
 	flag.Parse()
 
@@ -31,13 +32,13 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	if err := run(ctx, *configPath); err != nil {
+	if err := run(ctx, *configPath, *socketPath); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, configPath string) error {
+func run(ctx context.Context, configPath, socketPath string) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
@@ -46,5 +47,5 @@ func run(ctx context.Context, configPath string) error {
 	slog.Info("config loaded", "path", configPath)
 
 	d := daemon.New(cfg, slog.Default())
-	return d.Run(ctx, config.SocketPath)
+	return d.Run(ctx, socketPath)
 }

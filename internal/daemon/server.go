@@ -60,8 +60,8 @@ func (s *Server) Listen() error {
 	}
 	s.listener = ln
 
-	// Set socket permissions (rw for owner and group)
-	if err := os.Chmod(s.socketPath, 0660); err != nil {
+	// Set socket permissions (world accessible for user UI to connect)
+	if err := os.Chmod(s.socketPath, 0666); err != nil {
 		ln.Close()
 		return err
 	}
