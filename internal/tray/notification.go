@@ -57,6 +57,7 @@ func (t *Tray) showNotification(notificationType NotificationType, title, messag
 		}
 	}
 }
+
 // executeAction runs a command with the given arguments
 func (t *Tray) executeAction(command string, args []string) error {
 	cmd := exec.Command(command, args...)

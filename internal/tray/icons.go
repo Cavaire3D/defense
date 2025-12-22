@@ -7,7 +7,6 @@ import (
 	_ "embed"
 )
 
-
 //go:embed icons/secure-16.png
 var ProtectedIcon []byte
 
