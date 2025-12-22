@@ -74,6 +74,9 @@ func (m *menu) build() {
 
 // setupHandlers configures all menu item click handlers
 func (m *menu) setupHandlers() {
+	// Sync firewall state with daemon
+	go m.syncFirewallState()
+
 	// Set up click handlers for each menu item
 	m.quickScanItem.Click(m.handleQuickScan)
 	m.fullScanItem.Click(m.handleFullScan)
@@ -157,6 +160,23 @@ func (m *menu) handlePause(duration string) {
 		m.tray.showNotification(NotificationStateChange, "Protection Paused", "Protection will resume in 1 hour")
 	case "reboot":
 		m.tray.showNotification(NotificationStateChange, "Protection Paused", "Protection will resume after system reboot")
+	}
+}
+
+// syncFirewallState queries the daemon and updates the checkbox to match
+func (m *menu) syncFirewallState() {
+	enabled, err := m.tray.client.IsFirewallEnabled()
+	if err != nil {
+		// Can't reach daemon, leave default
+		return
+	}
+
+	if enabled {
+		m.firewallItem.Check()
+		m.firewallItem.SetTitle("Firewall: Enabled ✓")
+	} else {
+		m.firewallItem.Uncheck()
+		m.firewallItem.SetTitle("Firewall: Disabled")
 	}
 }
 
