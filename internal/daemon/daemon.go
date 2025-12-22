@@ -31,7 +31,7 @@ type Daemon struct {
 
 // New creates a new daemon instance.
 func New(cfg *config.Config, logger *slog.Logger) *Daemon {
-	return &Daemon{
+	d := &Daemon{
 		cfg:             cfg,
 		state:           NewStateManager(),
 		logger:          logger,
@@ -40,6 +40,14 @@ func New(cfg *config.Config, logger *slog.Logger) *Daemon {
 		firewallEnabled: cfg.Firewall.Enabled,
 		rulesUpdated:    time.Now(), // Assume rules are current at startup
 	}
+
+	// Register listener to emit state change events
+	d.state.OnStateChange(func(old, new State) {
+		evt := events.StartStateChange(old.String(), new.String())
+		d.events.Emit(evt.End())
+	})
+
+	return d
 }
 
 // Config returns the daemon configuration.
