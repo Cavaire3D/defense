@@ -78,17 +78,13 @@ func (t *Tray) onExit() {
 // setIcon updates the tray icon based on the current state
 func (t *Tray) setIcon(state string) {
 	t.mu.Lock()
-	oldState := t.currentState
-
-	if oldState == state {
+	if t.currentState == state {
 		t.mu.Unlock()
 		return
 	}
-
 	t.currentState = state
-	t.mu.Unlock()
 
-	// Update icon and tooltip
+	// Update icon and tooltip while holding lock to prevent races
 	switch state {
 	case "protected":
 		systray.SetIcon(t.iconProtected)
@@ -96,17 +92,25 @@ func (t *Tray) setIcon(state string) {
 	case "warning":
 		systray.SetIcon(t.iconWarning)
 		systray.SetTooltip("Oreon Defense - Warning")
-		t.showNotification(NotificationRulesOutdated, "Rules Outdated", "Your security rules are out of date")
 	case "alert":
 		systray.SetIcon(t.iconAlert)
 		systray.SetTooltip("Oreon Defense - Alert!")
-		t.showNotification(NotificationThreatBlocked, "Threat Blocked", "A potential threat has been blocked")
 	case "scanning":
 		systray.SetIcon(t.iconScanning)
 		systray.SetTooltip("Oreon Defense - Scanning...")
 	case "paused":
 		systray.SetIcon(t.iconPaused)
 		systray.SetTooltip("Oreon Defense - Paused")
+	}
+	t.mu.Unlock()
+
+	// Show notifications after releasing lock to avoid blocking
+	switch state {
+	case "warning":
+		t.showNotification(NotificationRulesOutdated, "Rules Outdated", "Your security rules are out of date")
+	case "alert":
+		t.showNotification(NotificationThreatBlocked, "Threat Blocked", "A potential threat has been blocked")
+	case "paused":
 		t.showNotification(NotificationFirewallDisabled, "Firewall Disabled", "Your firewall protection is currently disabled")
 	}
 }
