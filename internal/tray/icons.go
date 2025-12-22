@@ -2,22 +2,40 @@
 
 package tray
 
-import "github.com/oreonproject/defense/assets"
+import (
+	_ "embed"
+)
+
+
+//go:embed icons/secure-16.png
+var ProtectedIcon []byte
+
+//go:embed icons/warning-16.png
+var WarningIcon []byte
+
+//go:embed icons/critical-16.png
+var AlertIcon []byte
+
+//go:embed icons/pending-16.png
+var ScanningIcon []byte
+
+//go:embed icons/paused-16.png
+var PausedIcon []byte
 
 // loadIcon returns the appropriate icon for the given state
 func loadIcon(state string) []byte {
 	switch state {
 	case "protected":
-		return assets.ProtectedIcon
+		return ProtectedIcon
 	case "warning":
-		return assets.WarningIcon
+		return WarningIcon
 	case "alert":
-		return assets.AlertIcon
+		return AlertIcon
 	case "scanning":
-		return assets.ScanningIcon
+		return ScanningIcon
 	case "paused":
-		return assets.PausedIcon
+		return PausedIcon
 	default:
-		return assets.ProtectedIcon
+		return ProtectedIcon
 	}
 }

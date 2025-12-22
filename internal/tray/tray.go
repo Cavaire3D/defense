@@ -2,6 +2,7 @@
 package tray
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -11,8 +12,9 @@ import (
 
 // Tray represents the system tray application
 type Tray struct {
-	client        ipc.Client
-	menu          *menu
+	client ipc.Client
+	menu   *menu
+
 	iconProtected []byte
 	iconWarning   []byte
 	iconAlert     []byte
@@ -21,18 +23,27 @@ type Tray struct {
 
 	mu           sync.Mutex
 	currentState string
+	stateNames   map[string]string
 }
 
 // New creates a new Tray instance
 func New(client ipc.Client) *Tray {
 	return &Tray{
 		client: client,
+		stateNames: map[string]string{
+			"protected": "Protected",
+			"warning":   "Warning",
+			"alert":     "Alert!",
+			"scanning":  "Scanning...",
+			"paused":    "Protection Paused",
+		},
 	}
 }
 
 // Run starts the system tray application
 func (t *Tray) Run() error {
 	systray.Run(t.onReady, t.onExit)
+
 	return nil
 }
 
@@ -50,6 +61,9 @@ func (t *Tray) onReady() {
 
 	// Start status monitoring
 	go t.monitorStatus()
+
+	// Show initial notification
+	t.showNotification(NotificationStateChange, "Oreon Defense", "Protection is now active")
 }
 
 // onExit is called when the system tray is exiting
@@ -59,32 +73,45 @@ func (t *Tray) onExit() {
 
 // setIcon updates the tray icon based on the current state
 func (t *Tray) setIcon(state string) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+    t.mu.Lock()
+    oldState := t.currentState
 
-	if t.currentState == state {
-		return
-	}
+    if oldState == state {
+        t.mu.Unlock()
+        return
+    }
 
-	t.currentState = state
+    t.currentState = state
+    t.mu.Unlock()
 
-	switch state {
-	case "protected":
-		systray.SetIcon(t.iconProtected)
-		systray.SetTooltip("Oreon Defense - Protected")
-	case "warning":
-		systray.SetIcon(t.iconWarning)
-		systray.SetTooltip("Oreon Defense - Warning")
-	case "alert":
-		systray.SetIcon(t.iconAlert)
-		systray.SetTooltip("Oreon Defense - Alert!")
-	case "scanning":
-		systray.SetIcon(t.iconScanning)
-		systray.SetTooltip("Oreon Defense - Scanning...")
-	case "paused":
-		systray.SetIcon(t.iconPaused)
-		systray.SetTooltip("Oreon Defense - Paused")
-	}
+    // Update icon and tooltip
+    switch state {
+    case "protected":
+        systray.SetIcon(t.iconProtected)
+        systray.SetTooltip("Oreon Defense - Protected")
+    case "warning":
+        systray.SetIcon(t.iconWarning)
+        systray.SetTooltip("Oreon Defense - Warning")
+        t.showNotification(NotificationRulesOutdated, "Rules Outdated", "Your security rules are out of date")
+    case "alert":
+        systray.SetIcon(t.iconAlert)
+        systray.SetTooltip("Oreon Defense - Alert!")
+        t.showNotification(NotificationThreatBlocked, "Threat Blocked", "A potential threat has been blocked")
+    case "scanning":
+        systray.SetIcon(t.iconScanning)
+        systray.SetTooltip("Oreon Defense - Scanning...")
+    case "paused":
+        systray.SetIcon(t.iconPaused)
+        systray.SetTooltip("Oreon Defense - Paused")
+        t.showNotification(NotificationFirewallDisabled, "Firewall Disabled", "Your firewall protection is currently disabled")
+    }
+
+    // Show state change notification
+    if oldState != "" && oldState != state {
+        title := "Oreon Defense - " + t.stateNames[state]
+        message := fmt.Sprintf("Protection state changed from %s to %s", oldState, state)
+        t.showNotification(NotificationType(state), title, message)
+    }
 }
 
 // loadIcons loads all the required icons
@@ -113,7 +140,3 @@ func (t *Tray) monitorStatus() {
 }
 
 // showNotification displays a desktop notification
-func (t *Tray) showNotification(title, message string, isError bool) {
-	// TODO: Implement desktop notifications
-	// This will use the appropriate notification system for the platform
-}
