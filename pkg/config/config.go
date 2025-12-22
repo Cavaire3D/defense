@@ -14,6 +14,7 @@ type Config struct {
 	Firewall      Firewall      `toml:"firewall"`
 	Notifications Notifications `toml:"notifications"`
 	Scanning      Scanning      `toml:"scanning"`
+	ClamAV        ClamAV        `toml:"clamav"`
 }
 
 type General struct {
@@ -33,6 +34,10 @@ type Scanning struct {
 	Exclusions []string `toml:"exclusions"`
 }
 
+type ClamAV struct {
+	SocketPath string `toml:"socket_path"`
+}
+
 func Default() *Config {
 	return &Config{
 		General: General{
@@ -47,6 +52,9 @@ func Default() *Config {
 		},
 		Scanning: Scanning{
 			Exclusions: []string{},
+		},
+		ClamAV: ClamAV{
+			SocketPath: "/var/run/clamav/clamd.sock",
 		},
 	}
 }

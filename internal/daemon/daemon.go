@@ -141,8 +141,9 @@ func (d *Daemon) healthCheck() {
 
 // checkClamAV verifies ClamAV daemon is available.
 func (d *Daemon) checkClamAV() bool {
-	// Common ClamAV socket paths
+	// Check configured path first, then fallbacks
 	socketPaths := []string{
+		d.cfg.ClamAV.SocketPath,
 		"/var/run/clamav/clamd.sock",
 		"/var/run/clamav/clamd.ctl",
 		"/run/clamav/clamd.sock",
@@ -150,6 +151,9 @@ func (d *Daemon) checkClamAV() bool {
 	}
 
 	for _, path := range socketPaths {
+		if path == "" {
+			continue
+		}
 		if _, err := os.Stat(path); err == nil {
 			d.logger.Debug("found ClamAV socket", "path", path)
 			return true
