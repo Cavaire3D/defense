@@ -118,6 +118,13 @@ func (s *Server) handleConnection(conn net.Conn) {
 }
 
 func (s *Server) handleRequest(req *ipc.Request) *ipc.Response {
+	// Check protocol version (0 means old client that didn't send version)
+	if req.Version != 0 && req.Version != ipc.ProtocolVersion {
+		slog.Warn("client using different protocol version",
+			"client_version", req.Version,
+			"server_version", ipc.ProtocolVersion)
+	}
+
 	switch req.Command {
 	case ipc.CmdPing:
 		return &ipc.Response{

@@ -105,7 +105,7 @@ func (c *socketClient) isConnectionError(err error) bool {
 func (c *socketClient) doCall(cmd string, params interface{}) (*Response, error) {
 	id := fmt.Sprintf("%d", c.reqID.Add(1))
 
-	req := Request{ID: id, Command: cmd}
+	req := Request{Version: ProtocolVersion, ID: id, Command: cmd}
 	if params != nil {
 		p, err := json.Marshal(params)
 		if err != nil {

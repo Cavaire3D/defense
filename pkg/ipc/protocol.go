@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+// ProtocolVersion is the current IPC protocol version.
+// Bump this when making breaking changes to the protocol.
+const ProtocolVersion = 1
+
 // Request is sent from client (tray, CLI) to daemon.
 //
 // Example requests:
@@ -15,6 +19,7 @@ import (
 //	{"id": "2", "cmd": "scan", "params": {"type": "quick"}}
 //	{"id": "3", "cmd": "pause", "params": {"duration": "15m"}}
 type Request struct {
+	Version int             `json:"v,omitempty"`      // protocol version (defaults to 1)
 	ID      string          `json:"id"`               // unique request ID for matching responses
 	Command string          `json:"cmd"`              // command name
 	Params  json.RawMessage `json:"params,omitempty"` // command-specific params
