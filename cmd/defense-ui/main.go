@@ -29,16 +29,21 @@ func main() {
 	trayApp := tray.New(client)
 
 	// Run the tray in a goroutine so we can handle shutdown gracefully
+	errCh := make(chan error, 1)
 	go func() {
-		if err := trayApp.Run(); err != nil {
-			slog.Error("tray application error", "error", err)
-			os.Exit(1)
-		}
+		errCh <- trayApp.Run()
 	}()
 
-	// Wait for interrupt signal
-	<-sigCh
-	slog.Info("shutting down")
-	// Any cleanup can be done here if needed
+	// Wait for either interrupt signal or tray exit
+	select {
+	case <-sigCh:
+		slog.Info("received interrupt, shutting down")
+	case err := <-errCh:
+		if err != nil {
+			slog.Error("tray application error", "error", err)
+		}
+	}
 
+	// Cleanup
+	client.Close()
 }
