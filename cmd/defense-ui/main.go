@@ -22,12 +22,8 @@ func main() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 
-	// Initialize the IPC client
-	client, err := ipc.NewClient("/run/oreon/defense.sock")
-	if err != nil {
-		slog.Error("failed to create IPC client", "error", err)
-		os.Exit(1)
-	}
+	// Initialize the IPC client (connects lazily on first call)
+	client := ipc.NewClient("/run/oreon/defense.sock")
 
 	// Create and run the system tray
 	trayApp := tray.New(client)

@@ -30,13 +30,9 @@ type socketClient struct {
 	connected  bool
 }
 
-// NewClient creates a new IPC client connected to the daemon
-func NewClient(socketPath string) (Client, error) {
-	c := &socketClient{socketPath: socketPath}
-	if err := c.connect(); err != nil {
-		return nil, err
-	}
-	return c, nil
+// NewClient creates a new IPC client. Connection is established lazily on first call.
+func NewClient(socketPath string) Client {
+	return &socketClient{socketPath: socketPath}
 }
 
 // connect establishes a connection to the daemon
@@ -63,6 +59,13 @@ func (c *socketClient) reconnect() error {
 func (c *socketClient) call(cmd string, params interface{}) (*Response, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	// Connect on first use
+	if !c.connected {
+		if err := c.connect(); err != nil {
+			return nil, err
+		}
+	}
 
 	resp, err := c.doCall(cmd, params)
 	if err != nil && c.isConnectionError(err) {
