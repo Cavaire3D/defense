@@ -30,13 +30,18 @@ func TestRequestJSON(t *testing.T) {
 }
 
 func TestResponseJSON(t *testing.T) {
+	statusData, err := json.Marshal(StatusResponse{
+		State:           "protected",
+		FirewallEnabled: true,
+	})
+	if err != nil {
+		t.Fatalf("marshal status: %v", err)
+	}
+
 	resp := Response{
 		ID:      "123",
 		Success: true,
-		Data: StatusResponse{
-			State:           "protected",
-			FirewallEnabled: true,
-		},
+		Data:    statusData,
 	}
 
 	data, err := json.Marshal(resp)
@@ -55,6 +60,19 @@ func TestResponseJSON(t *testing.T) {
 	}
 	if m["id"] != "123" {
 		t.Errorf("id = %v, want 123", m["id"])
+	}
+
+	// Test UnmarshalData helper
+	var got Response
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	var status StatusResponse
+	if err := got.UnmarshalData(&status); err != nil {
+		t.Fatalf("unmarshal data: %v", err)
+	}
+	if status.State != "protected" {
+		t.Errorf("state = %v, want protected", status.State)
 	}
 }
 

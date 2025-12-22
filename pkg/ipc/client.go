@@ -149,13 +149,8 @@ func (c *socketClient) Status() (*StatusResponse, error) {
 		return nil, err
 	}
 
-	// Re-marshal and unmarshal to get typed response
-	data, err := json.Marshal(resp.Data)
-	if err != nil {
-		return nil, err
-	}
 	var status StatusResponse
-	if err := json.Unmarshal(data, &status); err != nil {
+	if err := resp.UnmarshalData(&status); err != nil {
 		return nil, err
 	}
 	return &status, nil
@@ -192,12 +187,8 @@ func (c *socketClient) StartQuickScan() (*ScanResponse, error) {
 		return nil, err
 	}
 
-	data, err := json.Marshal(resp.Data)
-	if err != nil {
-		return nil, err
-	}
 	var scanResp ScanResponse
-	if err := json.Unmarshal(data, &scanResp); err != nil {
+	if err := resp.UnmarshalData(&scanResp); err != nil {
 		return nil, err
 	}
 	return &scanResp, nil
@@ -209,12 +200,8 @@ func (c *socketClient) StartFullScan() (*ScanResponse, error) {
 		return nil, err
 	}
 
-	data, err := json.Marshal(resp.Data)
-	if err != nil {
-		return nil, err
-	}
 	var scanResp ScanResponse
-	if err := json.Unmarshal(data, &scanResp); err != nil {
+	if err := resp.UnmarshalData(&scanResp); err != nil {
 		return nil, err
 	}
 	return &scanResp, nil

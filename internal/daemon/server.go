@@ -117,6 +117,19 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 }
 
+// makeResponse creates a response with properly marshaled data.
+func makeResponse(id string, data interface{}) *ipc.Response {
+	resp := &ipc.Response{ID: id, Success: true}
+	if data != nil {
+		jsonData, err := json.Marshal(data)
+		if err != nil {
+			return &ipc.Response{ID: id, Success: false, Error: "marshal error: " + err.Error()}
+		}
+		resp.Data = jsonData
+	}
+	return resp
+}
+
 func (s *Server) handleRequest(req *ipc.Request) *ipc.Response {
 	// Check protocol version (0 means old client that didn't send version)
 	if req.Version != 0 && req.Version != ipc.ProtocolVersion {
@@ -127,86 +140,50 @@ func (s *Server) handleRequest(req *ipc.Request) *ipc.Response {
 
 	switch req.Command {
 	case ipc.CmdPing:
-		return &ipc.Response{
-			ID:      req.ID,
-			Success: true,
-			Data:    "pong",
-		}
+		return makeResponse(req.ID, "pong")
 
 	case ipc.CmdStatus:
-		return &ipc.Response{
-			ID:      req.ID,
-			Success: true,
-			Data: ipc.StatusResponse{
-				State:           s.daemon.State().State().String(),
-				FirewallEnabled: s.daemon.FirewallEnabled(),
-				LastScan:        s.daemon.LastScan(),
-				RulesUpdated:    s.daemon.RulesUpdated(),
-			},
-		}
+		return makeResponse(req.ID, ipc.StatusResponse{
+			State:           s.daemon.State().State().String(),
+			FirewallEnabled: s.daemon.FirewallEnabled(),
+			LastScan:        s.daemon.LastScan(),
+			RulesUpdated:    s.daemon.RulesUpdated(),
+		})
 
 	case ipc.CmdFirewallEnable:
 		s.daemon.SetFirewallEnabled(true)
-		return &ipc.Response{
-			ID:      req.ID,
-			Success: true,
-			Data:    "firewall enabled",
-		}
+		return makeResponse(req.ID, "firewall enabled")
 
 	case ipc.CmdFirewallDisable:
 		s.daemon.SetFirewallEnabled(false)
-		return &ipc.Response{
-			ID:      req.ID,
-			Success: true,
-			Data:    "firewall disabled",
-		}
+		return makeResponse(req.ID, "firewall disabled")
 
 	case ipc.CmdFirewallStatus:
-		return &ipc.Response{
-			ID:      req.ID,
-			Success: true,
-			Data: ipc.FirewallStatusResponse{
-				Enabled: s.daemon.FirewallEnabled(),
-			},
-		}
+		return makeResponse(req.ID, ipc.FirewallStatusResponse{
+			Enabled: s.daemon.FirewallEnabled(),
+		})
 
 	case ipc.CmdScanQuick:
 		s.daemon.State().SetState(StateScanning)
 		go s.runScan("quick")
-		return &ipc.Response{
-			ID:      req.ID,
-			Success: true,
-			Data: ipc.ScanResponse{
-				JobID: "quick-" + time.Now().Format("20060102-150405"),
-			},
-		}
+		return makeResponse(req.ID, ipc.ScanResponse{
+			JobID: "quick-" + time.Now().Format("20060102-150405"),
+		})
 
 	case ipc.CmdScanFull:
 		s.daemon.State().SetState(StateScanning)
 		go s.runScan("full")
-		return &ipc.Response{
-			ID:      req.ID,
-			Success: true,
-			Data: ipc.ScanResponse{
-				JobID: "full-" + time.Now().Format("20060102-150405"),
-			},
-		}
+		return makeResponse(req.ID, ipc.ScanResponse{
+			JobID: "full-" + time.Now().Format("20060102-150405"),
+		})
 
 	case ipc.CmdPause:
 		s.daemon.State().SetState(StatePaused)
-		return &ipc.Response{
-			ID:      req.ID,
-			Success: true,
-			Data:    "protection paused",
-		}
+		return makeResponse(req.ID, "protection paused")
 
 	case ipc.CmdResume:
 		s.daemon.State().SetState(StateProtected)
-		return &ipc.Response{
-			ID:      req.ID,
-			Success: true,
-			Data:    "protection resumed",
-		}
+		return makeResponse(req.ID, "protection resumed")
 
 	default:
 		return &ipc.Response{

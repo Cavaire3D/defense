@@ -27,10 +27,18 @@ type Request struct {
 
 // Response is sent from daemon to client.
 type Response struct {
-	ID      string      `json:"id"`              // matches request ID
-	Success bool        `json:"success"`         // true if command succeeded
-	Data    interface{} `json:"data,omitempty"`  // command-specific response data
-	Error   string      `json:"error,omitempty"` // error message if success=false
+	ID      string          `json:"id"`              // matches request ID
+	Success bool            `json:"success"`         // true if command succeeded
+	Data    json.RawMessage `json:"data,omitempty"`  // command-specific response data (raw JSON)
+	Error   string          `json:"error,omitempty"` // error message if success=false
+}
+
+// UnmarshalData decodes the raw JSON data into the target type.
+func (r *Response) UnmarshalData(target interface{}) error {
+	if len(r.Data) == 0 {
+		return nil
+	}
+	return json.Unmarshal(r.Data, target)
 }
 
 // Commands - use these constants instead of raw strings.
